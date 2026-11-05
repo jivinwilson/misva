@@ -23,7 +23,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     ProblemDetail handleApi(ApiException ex) {
-        return problem(ex.status(), ex.code(), ex.getMessage());
+        ProblemDetail pd = problem(ex.status(), ex.code(), ex.getMessage());
+        ex.properties().forEach(pd::setProperty);
+        return pd;
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    ProblemDetail handleDenied(org.springframework.security.access.AccessDeniedException ex) {
+        return problem(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You do not have permission to do this.");
     }
 
     @ExceptionHandler(Exception.class)

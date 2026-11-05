@@ -26,3 +26,9 @@ cd frontend && npm install && npm run dev   # UI on :3000
 Tests: `cd backend && ./gradlew test` (uses the local `misva` database).
 Migrations: `database/migrations/V<nnnn>__description.sql`, applied on backend start.
 Backend reads `../.env`; the frontend reads `NEXT_PUBLIC_API_BASE_URL`.
+
+## Auth API (local)
+- `POST /api/v1/businesses/register` creates the business, head-office branch, owner, trial subscription and returns tokens.
+- `POST /api/v1/auth/login` (optional `businessId`), `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`.
+- `GET /api/v1/me`, `GET /api/v1/branches` (needs `Authorization: Bearer <accessToken>`).
+Access tokens last 15 minutes; refresh tokens rotate, and reusing an old one revokes the session family.

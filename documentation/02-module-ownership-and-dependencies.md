@@ -33,3 +33,11 @@ Layers may only depend downward: D to C to B to A to `shared`. Within a layer, o
 - Industry modules depend on engines and platform, never on each other.
 - Engines never depend on industry modules; industries register behavior through workflow and extension points.
 - Cross-module references use IDs, never JPA entity relations across module boundaries.
+
+## Added in Phase 5 (implemented)
+- `platform.onboarding`: orchestrates business registration. May depend on identity, business, employee, rbac, subscription and audit. Nothing depends on it.
+- `platform.security`: composition root for authentication (JWT converter, request filter, `/me`). May depend on identity, employee and rbac.
+- `identity` declares the `MembershipDirectory` port; `employee` implements it, so identity never reads membership tables.
+- Persistence uses Spring `JdbcClient` repositories inside `TenantTx`, not JPA entities. JPA remains on the classpath for the transaction manager and future aggregates.
+- All tenant-owned access goes through `TenantTx.inContext(businessId, userId, ...)`, which makes the transaction manager run `set_config(..., true)` before any statement.
+- `business_slug_exists()` (V0008) is the one SECURITY DEFINER function, answering only "is this slug taken" across tenants.
