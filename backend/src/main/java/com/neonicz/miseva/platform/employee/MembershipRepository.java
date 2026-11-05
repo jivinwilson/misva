@@ -1,14 +1,17 @@
 package com.neonicz.miseva.platform.employee;
 
+import com.neonicz.miseva.platform.business.BranchScopeResolver;
 import com.neonicz.miseva.platform.identity.MembershipDirectory;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class MembershipRepository implements MembershipDirectory {
+public class MembershipRepository implements MembershipDirectory, BranchScopeResolver {
 
     private final JdbcClient jdbc;
 
@@ -32,6 +35,17 @@ public class MembershipRepository implements MembershipDirectory {
                         + " WHERE m.user_id = :user AND m.business_id = :business AND m.status = 'active' AND b.status = 'active'")
                 .param("user", userId).param("business", businessId)
                 .query(UUID.class).optional();
+    }
+
+    @Override
+    public Optional<Set<UUID>> restrictedBranchIds(UUID membershipId) {
+        boolean all = jdbc.sql("SELECT all_branches FROM business_memberships WHERE id = :id")
+                .param("id", membershipId).query(Boolean.class).optional().orElse(false);
+        if (all) {
+            return Optional.empty();
+        }
+        return Optional.of(new HashSet<>(jdbc.sql("SELECT branch_id FROM branch_access WHERE membership_id = :id")
+                .param("id", membershipId).query(UUID.class).list()));
     }
 
     public UUID insertActiveOwner(UUID businessId, UUID userId, String firstName, String lastName) {

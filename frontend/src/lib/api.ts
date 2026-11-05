@@ -77,12 +77,27 @@ export interface BusinessSummary {
   status: string;
 }
 
-export interface Branch {
+
+export const getHealth = () => apiFetch<HealthResponse>("/health");
+
+export interface BranchView {
   id: string;
   code: string;
   name: string;
   status: string;
   headOffice: boolean;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+  countryCode: string;
+  timezone: string;
+  version: number;
 }
 
-export const getHealth = () => apiFetch<HealthResponse>("/health");
+export interface BranchList {
+  items: BranchView[];
+  maxBranches?: number;
+  used: number;
+}

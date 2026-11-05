@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { logoutAction } from "@/app/actions/auth";
-import { ApiError, apiFetch, type Branch, type BusinessSummary, type Me } from "@/lib/api";
+import { ApiError, apiFetch, type BranchList, type BusinessSummary, type Me } from "@/lib/api";
 import { industryLabel } from "@/lib/reference-data";
 import { getAccessToken } from "@/lib/session";
 
@@ -10,24 +10,9 @@ export const metadata: Metadata = { title: "Dashboard · MISEVA" };
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-ivory">
-      <header className="flex items-center justify-between bg-obsidian px-6 py-4 text-champagne">
-        <span className="font-serif text-xl tracking-wide text-ivory">MISEVA</span>
-        <form action={logoutAction}>
-          <button
-            type="submit"
-            className="rounded-lg border border-gold/50 px-4 py-1.5 text-sm text-champagne transition hover:bg-emerald focus:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-          >
-            Sign out
-          </button>
-        </form>
-      </header>
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <Suspense fallback={<p className="text-obsidian/60">Loading your workspace…</p>}>
-          <Workspace />
-        </Suspense>
-      </main>
-    </div>
+    <Suspense fallback={<p className="text-obsidian/60">Loading your workspace…</p>}>
+      <Workspace />
+    </Suspense>
   );
 }
 
@@ -35,12 +20,12 @@ async function Workspace() {
   const token = await getAccessToken();
   if (!token) redirect("/auth/refresh?next=/dashboard");
 
-  let me: Me, business: BusinessSummary, branches: Branch[];
+  let me: Me, business: BusinessSummary, branches: BranchList;
   try {
     [me, business, branches] = await Promise.all([
       apiFetch<Me>("/me", { token }),
       apiFetch<BusinessSummary>("/businesses/current", { token }),
-      apiFetch<Branch[]>("/branches", { token }),
+      apiFetch<BranchList>("/branches", { token }),
     ]);
   } catch (e) {
     if (e instanceof ApiError && e.problem.status === 401) redirect("/auth/refresh?next=/dashboard");
@@ -62,9 +47,14 @@ async function Workspace() {
       </section>
 
       <section aria-labelledby="branches" className="rounded-2xl border border-obsidian/10 bg-white p-6 shadow-sm">
-        <h2 id="branches" className="font-serif text-xl text-obsidian">Branches</h2>
+        <div className="flex items-center justify-between">
+          <h2 id="branches" className="font-serif text-xl text-obsidian">Branches</h2>
+          <Link href="/dashboard/branches" className="text-sm font-medium text-emerald underline underline-offset-4">
+            Manage
+          </Link>
+        </div>
         <ul className="mt-4 divide-y divide-obsidian/10">
-          {branches.map((b) => (
+          {branches.items.map((b) => (
             <li key={b.id} className="flex items-center justify-between py-3">
               <span>
                 <span className="font-medium text-obsidian">{b.name}</span>

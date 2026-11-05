@@ -9,9 +9,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class BusinessRepository {
 
-    public record Branch(UUID id, String code, String name, String status, boolean headOffice) {
-    }
-
     private final JdbcClient jdbc;
 
     public BusinessRepository(JdbcClient jdbc) {
@@ -62,11 +59,4 @@ public class BusinessRepository {
                 .optional();
     }
 
-    public List<Branch> listBranches(UUID businessId) {
-        return jdbc.sql("SELECT id, code, name, status, is_head_office FROM branches WHERE business_id = :business ORDER BY code")
-                .param("business", businessId)
-                .query((rs, n) -> new Branch(rs.getObject("id", UUID.class), rs.getString("code"), rs.getString("name"),
-                        rs.getString("status"), rs.getBoolean("is_head_office")))
-                .list();
-    }
 }

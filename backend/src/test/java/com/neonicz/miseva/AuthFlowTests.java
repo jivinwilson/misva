@@ -115,9 +115,9 @@ class AuthFlowTests {
 
         mvc.perform(get("/api/v1/branches").header("Authorization", "Bearer " + access))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].code").value("HQ"))
-                .andExpect(jsonPath("$[0].headOffice").value(true));
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].code").value("HQ"))
+                .andExpect(jsonPath("$.items[0].headOffice").value(true));
     }
 
     @Test
@@ -128,7 +128,7 @@ class AuthFlowTests {
         String accessB = JsonPath.read(b, "$.tokens.accessToken");
 
         String listB = mvc.perform(get("/api/v1/branches").header("Authorization", "Bearer " + accessB))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
                 .andReturn().getResponse().getContentAsString();
         org.assertj.core.api.Assertions.assertThat(listB).doesNotContain(branchA);
     }
