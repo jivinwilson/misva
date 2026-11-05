@@ -122,6 +122,10 @@ export interface EmployeeView {
   invitationExpiresAt?: string;
   roles: string[];
   branches: string[];
+  roleIds: string[];
+  branchIds: string[];
+  you: boolean;
+  manageable: boolean;
 }
 
 export interface InviteResult {

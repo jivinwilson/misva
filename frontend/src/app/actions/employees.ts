@@ -111,3 +111,65 @@ export async function acceptInvitationAction(_prev: AcceptFormState, fd: FormDat
   await setSession(tokens);
   redirect("/dashboard");
 }
+
+export interface MemberFormState {
+  ok?: boolean;
+  error?: string;
+  fieldErrors?: Record<string, string>;
+}
+
+function memberFailure(e: unknown): MemberFormState {
+  if (e instanceof ApiError) {
+    if (e.problem.status === 401) redirect("/auth/refresh?next=/dashboard/team");
+    if (e.problem.errors?.length) {
+      return { fieldErrors: Object.fromEntries(e.problem.errors.map((x) => [x.field, x.message])) };
+    }
+    return { error: e.message };
+  }
+  return { error: "Cannot reach the server. Please try again." };
+}
+
+export async function updateEmployeeAction(_prev: MemberFormState, fd: FormData): Promise<MemberFormState> {
+  const text = (k: string) => String(fd.get(k) ?? "").trim();
+  const allBranches = fd.get("allBranches") === "on";
+  const branchIds = fd.getAll("branchIds").map(String);
+  const roleIds = fd.getAll("roleIds").map(String);
+
+  const fieldErrors: Record<string, string> = {};
+  if (!text("firstName")) fieldErrors.firstName = "Enter a first name.";
+  if (!text("lastName")) fieldErrors.lastName = "Enter a last name.";
+  if (fd.get("rolesLocked") !== "true" && roleIds.length === 0) fieldErrors.roleIds = "Choose at least one role.";
+  if (!allBranches && branchIds.length === 0) fieldErrors.branchIds = "Choose at least one branch, or all branches.";
+  if (Object.keys(fieldErrors).length) return { fieldErrors };
+
+  try {
+    await apiFetch(`/employees/${encodeURIComponent(text("id"))}`, {
+      method: "PUT",
+      token: await token(),
+      body: JSON.stringify({
+        firstName: text("firstName"),
+        lastName: text("lastName"),
+        jobTitle: text("jobTitle"),
+        roleIds,
+        allBranches,
+        branchIds: allBranches ? [] : branchIds,
+      }),
+    });
+  } catch (e) {
+    return memberFailure(e);
+  }
+  revalidatePath("/dashboard/team");
+  return { ok: true };
+}
+
+export async function memberStatusAction(_prev: MemberFormState, fd: FormData): Promise<MemberFormState> {
+  const op = String(fd.get("op"));
+  if (!["suspend", "reactivate", "remove"].includes(op)) return { error: "Unknown action." };
+  try {
+    await apiFetch(`/employees/${encodeURIComponent(String(fd.get("id")))}/${op}`, { method: "POST", token: await token() });
+  } catch (e) {
+    return memberFailure(e);
+  }
+  revalidatePath("/dashboard/team");
+  return { ok: true };
+}

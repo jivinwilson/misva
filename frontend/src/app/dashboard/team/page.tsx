@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { revokeInvitationAction } from "@/app/actions/employees";
 import { InviteDialog } from "@/components/invite-dialog";
+import { ConfirmMemberAction, EditMemberDialog } from "@/components/member-dialogs";
 import { ResendInvitation } from "@/components/resend-invitation";
 import { ApiError, apiFetch, type BranchList, type EmployeeView, type Me, type RoleView } from "@/lib/api";
 import { getAccessToken } from "@/lib/session";
@@ -44,7 +45,7 @@ async function Team() {
         apiFetch<EmployeeView[]>("/employees", { token }),
         apiFetch<BranchList>("/branches", { token }),
       ]);
-      if (me.permissions.includes("employee.member.invite")) {
+      if (me.permissions.includes("employee.member.invite") || me.permissions.includes("employee.member.update")) {
         roles = await apiFetch<RoleView[]>("/roles/assignable", { token });
       }
     }
@@ -69,6 +70,9 @@ async function Team() {
   }
 
   const canInvite = me.permissions.includes("employee.member.invite");
+  const canUpdate = me.permissions.includes("employee.member.update");
+  const canRemove = me.permissions.includes("employee.member.remove");
+  const activeBranches = branches.items.filter((b) => b.status === "active");
   const canGrantAll = !branches.restricted;
   const name = (x: EmployeeView) => [x.firstName, x.lastName].filter(Boolean).join(" ") || x.email;
 
@@ -85,7 +89,7 @@ async function Team() {
         {canInvite ? (
           <InviteDialog
             roles={roles}
-            branches={branches.items.filter((b) => b.status === "active")}
+            branches={activeBranches}
             canGrantAllBranches={canGrantAll}
             triggerClassName={primaryButton}
           />
@@ -98,6 +102,7 @@ async function Team() {
             <div className="min-w-0">
               <p className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-obsidian">{name(x)}</span>
+                {x.you ? <span className="rounded-full bg-obsidian/10 px-2 py-0.5 text-xs text-obsidian/70">You</span> : null}
                 {x.employeeCode ? <span className="text-sm text-obsidian/60">{x.employeeCode}</span> : null}
                 {x.status === "invited" ? (
                   <span className="rounded-full bg-champagne px-2.5 py-0.5 text-xs font-medium text-obsidian">
@@ -121,6 +126,53 @@ async function Team() {
                 </span>
               </p>
             </div>
+            {x.manageable && (canUpdate || canRemove) ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {canUpdate ? (
+                  <EditMemberDialog
+                    member={x}
+                    roles={roles}
+                    branches={activeBranches}
+                    canGrantAllBranches={canGrantAll}
+                    triggerClassName={subtleButton}
+                  />
+                ) : null}
+                {canUpdate && x.status === "active" ? (
+                  <ConfirmMemberAction
+                    membershipId={x.membershipId}
+                    op="suspend"
+                    triggerLabel="Suspend"
+                    title={`Suspend ${name(x)}?`}
+                    description="They lose access straight away and can be reactivated later."
+                    confirmLabel="Suspend"
+                    triggerClassName={subtleButton}
+                  />
+                ) : null}
+                {canUpdate && x.status === "suspended" ? (
+                  <ConfirmMemberAction
+                    membershipId={x.membershipId}
+                    op="reactivate"
+                    triggerLabel="Reactivate"
+                    title={`Reactivate ${name(x)}?`}
+                    description="They regain the access they had before."
+                    confirmLabel="Reactivate"
+                    triggerClassName={subtleButton}
+                  />
+                ) : null}
+                {canRemove ? (
+                  <ConfirmMemberAction
+                    membershipId={x.membershipId}
+                    op="remove"
+                    triggerLabel="Remove"
+                    title={`Remove ${name(x)}?`}
+                    description="They lose access to this business immediately. Their history is kept, and you can invite them again later."
+                    confirmLabel="Remove"
+                    triggerClassName={subtleButton}
+                    danger
+                  />
+                ) : null}
+              </div>
+            ) : null}
             {canInvite && x.status === "invited" ? (
               <div className="flex items-start gap-2">
                 <ResendInvitation membershipId={x.membershipId} className={subtleButton} />

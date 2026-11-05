@@ -5,7 +5,9 @@ import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -18,7 +20,17 @@ public class EmployeeRepository {
 
     public record EmployeeView(UUID membershipId, String status, String email, String firstName, String lastName,
                                String jobTitle, String employeeCode, boolean allBranches, OffsetDateTime invitationExpiresAt,
-                               List<String> roles, List<String> branches) {
+                               List<String> roles, List<String> branches, List<UUID> roleIds, List<UUID> branchIds,
+                               boolean you, boolean manageable) {
+
+        public EmployeeView withFlags(boolean you, boolean manageable) {
+            return new EmployeeView(membershipId, status, email, firstName, lastName, jobTitle, employeeCode, allBranches,
+                    invitationExpiresAt, roles, branches, roleIds, branchIds, you, manageable);
+        }
+    }
+
+    public record MemberDetail(UUID id, UUID userId, String status, boolean allBranches, Set<UUID> roleIds,
+                               Set<UUID> branchIds, boolean owner) {
     }
 
     public record InvitationRow(UUID membershipId, UUID userId, OffsetDateTime expiresAt, String email, String firstName,
@@ -136,7 +148,9 @@ public class EmployeeRepository {
                         + " (SELECT array_agg(r.name ORDER BY r.name) FROM membership_roles mr JOIN roles r ON r.id = mr.role_id"
                         + "   WHERE mr.membership_id = m.id) AS role_names,"
                         + " (SELECT array_agg(b.name ORDER BY b.name) FROM branch_access ba JOIN branches b ON b.id = ba.branch_id"
-                        + "   WHERE ba.membership_id = m.id) AS branch_names"
+                        + "   WHERE ba.membership_id = m.id) AS branch_names,"
+                        + " (SELECT array_agg(mr.role_id) FROM membership_roles mr WHERE mr.membership_id = m.id) AS role_ids,"
+                        + " (SELECT array_agg(ba.branch_id) FROM branch_access ba WHERE ba.membership_id = m.id) AS branch_ids"
                         + " FROM business_memberships m JOIN users u ON u.id = m.user_id"
                         + " LEFT JOIN employee_profiles p ON p.membership_id = m.id"
                         + " WHERE m.business_id = :b AND m.status <> 'removed'"
@@ -158,6 +172,33 @@ public class EmployeeRepository {
                 .optional();
     }
 
+    public Optional<MemberDetail> findDetail(UUID businessId, UUID membershipId) {
+        return findMembershipById(businessId, membershipId).map(ref -> {
+            boolean all = jdbc.sql("SELECT all_branches FROM business_memberships WHERE id = :id")
+                    .param("id", membershipId).query(Boolean.class).single();
+            Set<UUID> roleIds = new HashSet<>(jdbc.sql("SELECT role_id FROM membership_roles WHERE membership_id = :id")
+                    .param("id", membershipId).query(UUID.class).list());
+            Set<UUID> branchIds = new HashSet<>(jdbc.sql("SELECT branch_id FROM branch_access WHERE membership_id = :id")
+                    .param("id", membershipId).query(UUID.class).list());
+            boolean owner = jdbc.sql("SELECT count(*) FROM membership_roles mr JOIN roles r ON r.id = mr.role_id"
+                            + " WHERE mr.membership_id = :id AND r.business_id IS NULL AND r.code = 'owner'")
+                    .param("id", membershipId).query(Integer.class).single() > 0;
+            return new MemberDetail(ref.id(), ref.userId(), ref.status(), all, roleIds, branchIds, owner);
+        });
+    }
+
+    public void setAllBranches(UUID businessId, UUID membershipId, boolean allBranches, UUID by) {
+        jdbc.sql("UPDATE business_memberships SET all_branches = :all, updated_by = :by WHERE id = :id AND business_id = :b")
+                .param("all", allBranches).param("by", by).param("id", membershipId).param("b", businessId).update();
+    }
+
+    public boolean transitionStatus(UUID businessId, UUID membershipId, Collection<String> from, String to, UUID by) {
+        return jdbc.sql("UPDATE business_memberships SET status = :to, updated_by = :by"
+                        + " WHERE id = :id AND business_id = :b AND status IN (:from)")
+                .param("to", to).param("by", by).param("id", membershipId).param("b", businessId).param("from", from)
+                .update() == 1;
+    }
+
     public Optional<String> emailOf(UUID businessId, UUID membershipId) {
         return jdbc.sql("SELECT u.email FROM business_memberships m JOIN users u ON u.id = m.user_id"
                         + " WHERE m.id = :m AND m.business_id = :b")
@@ -175,7 +216,12 @@ public class EmployeeRepository {
                 rs.getString("first_name"), rs.getString("last_name"), rs.getString("job_title"),
                 rs.getString("employee_code"), rs.getBoolean("all_branches"),
                 rs.getObject("invitation_expires_at", OffsetDateTime.class),
-                strings(rs.getArray("role_names")), strings(rs.getArray("branch_names")));
+                strings(rs.getArray("role_names")), strings(rs.getArray("branch_names")),
+                uuids(rs.getArray("role_ids")), uuids(rs.getArray("branch_ids")), false, false);
+    }
+
+    private static List<UUID> uuids(java.sql.Array array) throws SQLException {
+        return array == null ? List.of() : List.of((UUID[]) array.getArray());
     }
 
     private static List<String> strings(java.sql.Array array) throws SQLException {

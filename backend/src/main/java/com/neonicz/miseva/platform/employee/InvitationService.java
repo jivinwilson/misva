@@ -1,12 +1,9 @@
 package com.neonicz.miseva.platform.employee;
 
 import com.neonicz.miseva.platform.audit.AuditService;
-import com.neonicz.miseva.platform.employee.EmployeeRepository.EmployeeView;
 import com.neonicz.miseva.platform.employee.EmployeeRepository.MembershipRef;
 import com.neonicz.miseva.platform.identity.UserRepository;
 import com.neonicz.miseva.platform.identity.UserRepository.UserAccount;
-import com.neonicz.miseva.platform.rbac.RbacRepository;
-import com.neonicz.miseva.platform.rbac.RbacRepository.RoleView;
 import com.neonicz.miseva.platform.subscription.EntitlementRepository;
 import com.neonicz.miseva.platform.subscription.EntitlementRepository.Entitlement;
 import com.neonicz.miseva.shared.error.ApiException;
@@ -17,14 +14,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Base64;
-import java.util.HashSet;
 import java.util.HexFormat;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -48,25 +42,23 @@ public class InvitationService {
 
     private final TenantTx tx;
     private final EmployeeRepository employees;
-    private final MembershipRepository memberships;
     private final UserRepository users;
-    private final RbacRepository rbac;
+    private final GrantValidator grants;
     private final EntitlementRepository entitlements;
     private final AuditService audit;
     private final PasswordEncoder encoder;
     private final boolean exposeLink;
     private final String acceptUrlBase;
 
-    public InvitationService(TenantTx tx, EmployeeRepository employees, MembershipRepository memberships,
-                             UserRepository users, RbacRepository rbac, EntitlementRepository entitlements,
+    public InvitationService(TenantTx tx, EmployeeRepository employees, GrantValidator grants,
+                             UserRepository users, EntitlementRepository entitlements,
                              AuditService audit, PasswordEncoder encoder,
                              @Value("${miseva.invitations.expose-link:false}") boolean exposeLink,
                              @Value("${miseva.invitations.frontend-url:http://localhost:3000}") String frontendUrl) {
         this.tx = tx;
         this.employees = employees;
-        this.memberships = memberships;
         this.users = users;
-        this.rbac = rbac;
+        this.grants = grants;
         this.entitlements = entitlements;
         this.audit = audit;
         this.encoder = encoder;
@@ -74,16 +66,12 @@ public class InvitationService {
         this.acceptUrlBase = frontendUrl.replaceAll("/+$", "") + "/accept-invite?token=";
     }
 
-    public List<EmployeeView> list(Actor actor) {
-        return tx.inContext(actor.businessId(), actor.userId(), () -> employees.list(actor.businessId()));
-    }
-
     public InviteResult invite(Actor actor, InviteRequest req) {
         String email = req.email().trim();
         return tx.inContext(actor.businessId(), actor.userId(), () -> {
             employees.lockBusiness(actor.businessId());
-            Set<UUID> roleIds = validateRoles(actor, req.roleIds());
-            Set<UUID> branchIds = validateBranches(actor, req);
+            Set<UUID> roleIds = grants.roles(actor, req.roleIds());
+            Set<UUID> branchIds = grants.branches(actor, req.allBranches(), req.branchIds());
 
             UserAccount user = users.findByEmail(email).orElse(null);
             UUID userId = user != null ? user.id() : UUID.randomUUID();
@@ -144,46 +132,6 @@ public class InvitationService {
             }
             audit.record(actor.businessId(), null, actor.userId(), "employee.invitation_revoked", "membership", membershipId);
         });
-    }
-
-    private Set<UUID> validateRoles(Actor actor, Set<UUID> requested) {
-        if (requested == null || requested.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "ROLE_REQUIRED", "Choose at least one role.");
-        }
-        Set<UUID> assignable = rbac.assignableRoles().stream().map(RoleView::id).collect(Collectors.toSet());
-        for (UUID roleId : requested) {
-            if (!assignable.contains(roleId)) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "ROLE_NOT_ASSIGNABLE", "That role cannot be assigned.");
-            }
-            if (!actor.permissions().containsAll(rbac.permissionsOfRole(roleId))) {
-                throw new ApiException(HttpStatus.FORBIDDEN, "ROLE_EXCEEDS_YOUR_ACCESS",
-                        "You cannot grant a role with more access than you have.");
-            }
-        }
-        return new LinkedHashSet<>(requested);
-    }
-
-    private Set<UUID> validateBranches(Actor actor, InviteRequest req) {
-        Optional<Set<UUID>> mine = memberships.restrictedBranchIds(actor.membershipId());
-        if (req.allBranches()) {
-            if (mine.isPresent()) {
-                throw new ApiException(HttpStatus.FORBIDDEN, "BRANCH_SCOPE_EXCEEDED",
-                        "You can only grant access to branches you have access to.");
-            }
-            return Set.of();
-        }
-        Set<UUID> ids = req.branchIds() == null ? Set.of() : new HashSet<>(req.branchIds());
-        if (ids.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "BRANCH_REQUIRED", "Choose at least one branch, or all branches.");
-        }
-        if (mine.isPresent() && !mine.get().containsAll(ids)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "BRANCH_SCOPE_EXCEEDED",
-                    "You can only grant access to branches you have access to.");
-        }
-        if (employees.countExistingBranches(actor.businessId(), ids) != ids.size()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "UNKNOWN_BRANCH", "One of the branches does not exist or is inactive.");
-        }
-        return ids;
     }
 
     static String randomSecret() {

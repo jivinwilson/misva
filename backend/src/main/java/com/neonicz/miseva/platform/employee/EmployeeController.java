@@ -20,6 +20,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -39,16 +40,27 @@ public class EmployeeController {
             Set<UUID> branchIds) {
     }
 
-    private final InvitationService invitations;
+    public record UpdateBody(
+            @NotBlank @Size(max = 100) String firstName,
+            @NotBlank @Size(max = 100) String lastName,
+            @Size(max = 100) String jobTitle,
+            Set<UUID> roleIds,
+            boolean allBranches,
+            Set<UUID> branchIds) {
+    }
 
-    public EmployeeController(InvitationService invitations) {
+    private final InvitationService invitations;
+    private final TeamService team;
+
+    public EmployeeController(InvitationService invitations, TeamService team) {
         this.invitations = invitations;
+        this.team = team;
     }
 
     @GetMapping
     @PreAuthorize("hasAuthority('employee.member.read')")
     List<EmployeeView> list(@AuthenticationPrincipal MisevaPrincipal p) {
-        return invitations.list(actor(p));
+        return team.list(actor(p));
     }
 
     @PostMapping("/invitations")
@@ -70,6 +82,35 @@ public class EmployeeController {
     @PreAuthorize("hasAuthority('employee.member.invite')")
     void revoke(@AuthenticationPrincipal MisevaPrincipal p, @PathVariable UUID membershipId) {
         invitations.revoke(actor(p), membershipId);
+    }
+
+    @PutMapping("/{membershipId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('employee.member.update')")
+    void update(@AuthenticationPrincipal MisevaPrincipal p, @PathVariable UUID membershipId, @Valid @RequestBody UpdateBody b) {
+        team.update(actor(p), membershipId, new TeamService.UpdateRequest(b.firstName(), b.lastName(), b.jobTitle(),
+                b.roleIds(), b.allBranches(), b.branchIds()));
+    }
+
+    @PostMapping("/{membershipId}/suspend")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('employee.member.update')")
+    void suspend(@AuthenticationPrincipal MisevaPrincipal p, @PathVariable UUID membershipId) {
+        team.suspend(actor(p), membershipId);
+    }
+
+    @PostMapping("/{membershipId}/reactivate")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('employee.member.update')")
+    void reactivate(@AuthenticationPrincipal MisevaPrincipal p, @PathVariable UUID membershipId) {
+        team.reactivate(actor(p), membershipId);
+    }
+
+    @PostMapping("/{membershipId}/remove")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('employee.member.remove')")
+    void remove(@AuthenticationPrincipal MisevaPrincipal p, @PathVariable UUID membershipId) {
+        team.remove(actor(p), membershipId);
     }
 
     private static Actor actor(MisevaPrincipal p) {

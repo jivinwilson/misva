@@ -36,5 +36,6 @@ Access tokens last 15 minutes; refresh tokens rotate, and reusing an old one rev
 ## Branches and team API
 - `GET/POST /api/v1/branches`, `GET/PUT /api/v1/branches/{id}`, `POST /api/v1/branches/{id}/(activate|deactivate)`
 - `GET /api/v1/employees`, `POST /api/v1/employees/invitations`, `POST /api/v1/employees/{id}/(resend|revoke)`, `GET /api/v1/roles/assignable`
+- `PUT /api/v1/employees/{id}`, `POST /api/v1/employees/{id}/(suspend|reactivate|remove)`
 - Public: `GET /api/v1/invitations/preview?token=`, `POST /api/v1/invitations/accept`
 - Local only: set `INVITATIONS_EXPOSE_LINK=true` and `FRONTEND_URL=http://localhost:3000` when starting the backend to receive invitation links in the API response.

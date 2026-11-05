@@ -48,3 +48,10 @@ Layers may only depend downward: D to C to B to A to `shared`. Within a layer, o
 - Invitations: a membership with status `invited` holds the SHA-256 hash of a single-use token of the form `<businessId>.<secret>`. The token is the credential for the two public endpoints `GET /api/v1/invitations/preview` and `POST /api/v1/invitations/accept`. The business id inside the token only selects the tenant context; the hash must still match.
 - An inviter can only hand out roles whose permissions are a subset of their own, never the owner role, and only branches within their own branch scope.
 - No email provider exists yet. With `INVITATIONS_EXPOSE_LINK=true` (local only) the invitation link is returned to the inviter; otherwise nothing is delivered. The notification engine must replace this before any deployment.
+
+## Member management rules (implemented in `employee.TeamService`)
+- You cannot edit, suspend or remove yourself, and you cannot change anyone whose permissions are not a subset of yours.
+- A member holding the owner role cannot have their roles changed through the API; there is always at least one active owner because owners cannot modify themselves.
+- Branch-restricted managers can only change people whose branch access sits entirely inside their own, and can only grant branches from their own set.
+- Suspended or removed members lose access immediately: the authentication layer re-checks membership status on every request and on refresh, so no session revocation step is needed. Removal frees the plan seat and the person can be invited again.
+- Not yet done: editing your own profile, transferring ownership, and real session listing and revocation.
