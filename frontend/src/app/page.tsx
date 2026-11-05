@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { getHealth, type HealthResponse } from "@/lib/api";
 
@@ -35,6 +36,20 @@ export default function Home() {
       <p className="mt-4 max-w-md text-lg text-champagne/80">
         Everything in Place. Every Service in Control.
       </p>
+      <nav className="mt-10 flex flex-wrap justify-center gap-4">
+        <Link
+          href="/register"
+          className="rounded-lg bg-gold px-6 py-3 font-medium text-obsidian transition hover:bg-champagne focus:outline-none focus-visible:ring-2 focus-visible:ring-ivory"
+        >
+          Create your business
+        </Link>
+        <Link
+          href="/login"
+          className="rounded-lg border border-gold/50 px-6 py-3 font-medium text-champagne transition hover:bg-emerald/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+        >
+          Sign in
+        </Link>
+      </nav>
       <Suspense fallback={<Badge up={false} label="Checking API…" />}>
         <ApiStatus />
       </Suspense>

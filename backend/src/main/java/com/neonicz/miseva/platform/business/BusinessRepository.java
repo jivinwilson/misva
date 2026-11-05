@@ -47,6 +47,21 @@ public class BusinessRepository {
         return id;
     }
 
+    public record BusinessSummary(UUID id, String name, String slug, String industry, String country,
+                                  String currency, String timezone, String status) {
+    }
+
+    public Optional<BusinessSummary> findSummary(UUID businessId) {
+        return jdbc.sql("SELECT b.id, b.display_name, b.slug, i.code AS industry, b.country_code, b.default_currency,"
+                        + " b.timezone, b.status FROM businesses b JOIN industry_types i ON i.id = b.industry_type_id"
+                        + " WHERE b.id = :id")
+                .param("id", businessId)
+                .query((rs, n) -> new BusinessSummary(rs.getObject("id", UUID.class), rs.getString("display_name"),
+                        rs.getString("slug"), rs.getString("industry"), rs.getString("country_code"),
+                        rs.getString("default_currency"), rs.getString("timezone"), rs.getString("status")))
+                .optional();
+    }
+
     public List<Branch> listBranches(UUID businessId) {
         return jdbc.sql("SELECT id, code, name, status, is_head_office FROM branches WHERE business_id = :business ORDER BY code")
                 .param("business", businessId)
