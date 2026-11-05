@@ -1,0 +1,25 @@
+# Dependencies / build
+node_modules/
+.next/
+out/
+build/
+.gradle/
+target/
+*.class
+*.log
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Local storage / IDE / OS
+storage/
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

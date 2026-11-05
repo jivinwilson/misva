@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d backend && set \"JAVA_HOME=C:/Program Files/Eclipse Adoptium/jdk-21.0.13.9-hotspot\" && set \"MISEVA_CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001\" && call gradlew.bat bootRun"],
+      "port": 8081
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d frontend && npm run dev"],
+      "port": 3000
+    }
+  ]
+}
