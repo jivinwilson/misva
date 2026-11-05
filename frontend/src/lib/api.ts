@@ -100,4 +100,40 @@ export interface BranchList {
   items: BranchView[];
   maxBranches?: number;
   used: number;
+  restricted: boolean;
+}
+
+export interface RoleView {
+  id: string;
+  code: string;
+  name: string;
+  system: boolean;
+}
+
+export interface EmployeeView {
+  membershipId: string;
+  status: "active" | "invited" | "suspended";
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  jobTitle?: string;
+  employeeCode?: string;
+  allBranches: boolean;
+  invitationExpiresAt?: string;
+  roles: string[];
+  branches: string[];
+}
+
+export interface InviteResult {
+  membershipId: string;
+  email: string;
+  expiresAt: string;
+  inviteUrl?: string;
+}
+
+export interface InvitationPreview {
+  businessName: string;
+  email: string;
+  firstName?: string;
+  existingAccount: boolean;
 }

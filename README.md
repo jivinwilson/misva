@@ -32,3 +32,9 @@ Backend reads `../.env`; the frontend reads `NEXT_PUBLIC_API_BASE_URL`.
 - `POST /api/v1/auth/login` (optional `businessId`), `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`.
 - `GET /api/v1/me`, `GET /api/v1/branches` (needs `Authorization: Bearer <accessToken>`).
 Access tokens last 15 minutes; refresh tokens rotate, and reusing an old one revokes the session family.
+
+## Branches and team API
+- `GET/POST /api/v1/branches`, `GET/PUT /api/v1/branches/{id}`, `POST /api/v1/branches/{id}/(activate|deactivate)`
+- `GET /api/v1/employees`, `POST /api/v1/employees/invitations`, `POST /api/v1/employees/{id}/(resend|revoke)`, `GET /api/v1/roles/assignable`
+- Public: `GET /api/v1/invitations/preview?token=`, `POST /api/v1/invitations/accept`
+- Local only: set `INVITATIONS_EXPOSE_LINK=true` and `FRONTEND_URL=http://localhost:3000` when starting the backend to receive invitation links in the API response.

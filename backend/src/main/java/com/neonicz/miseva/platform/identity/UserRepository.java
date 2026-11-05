@@ -27,6 +27,18 @@ public class UserRepository {
                 .update();
     }
 
+    public void insertPending(UUID id, String email, String unusablePasswordHash, String fullName) {
+        jdbc.sql("INSERT INTO users (id, email, password_hash, full_name, status) VALUES (:id, :email, :hash, :name, 'pending')")
+                .param("id", id).param("email", email).param("hash", unusablePasswordHash).param("name", fullName)
+                .update();
+    }
+
+    public void activatePending(UUID id, String passwordHash) {
+        jdbc.sql("UPDATE users SET password_hash = :hash, status = 'active', email_verified_at = now()"
+                        + " WHERE id = :id AND status = 'pending'")
+                .param("hash", passwordHash).param("id", id).update();
+    }
+
     public Optional<UserAccount> findByEmail(String email) {
         return jdbc.sql("SELECT id, email, password_hash, full_name, status, locked_until FROM users WHERE email = :email")
                 .param("email", email).query(this::map).optional();

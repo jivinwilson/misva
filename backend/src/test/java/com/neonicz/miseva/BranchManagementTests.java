@@ -55,29 +55,7 @@ class BranchManagementTests {
     }
 
     private void cleanup() {
-        List<UUID> businesses = owner.queryForList(
-                "SELECT DISTINCT m.business_id FROM business_memberships m JOIN users u ON u.id = m.user_id WHERE u.email LIKE ?",
-                UUID.class, "%" + DOMAIN);
-        owner.execute("ALTER TABLE audit_events DISABLE TRIGGER trg_audit_events_immutable");
-        try {
-            for (UUID b : businesses) {
-                owner.update("DELETE FROM audit_events WHERE business_id = ?", b);
-            }
-        } finally {
-            owner.execute("ALTER TABLE audit_events ENABLE TRIGGER trg_audit_events_immutable");
-        }
-        owner.update("DELETE FROM auth_sessions WHERE user_id IN (SELECT id FROM users WHERE email LIKE ?)", "%" + DOMAIN);
-        for (UUID b : businesses) {
-            owner.update("DELETE FROM branch_access WHERE business_id = ?", b);
-            owner.update("DELETE FROM membership_roles WHERE business_id = ?", b);
-            owner.update("DELETE FROM employee_profiles WHERE business_id = ?", b);
-            owner.update("DELETE FROM business_memberships WHERE business_id = ?", b);
-            owner.update("DELETE FROM business_entitlement_overrides WHERE business_id = ?", b);
-            owner.update("DELETE FROM subscriptions WHERE business_id = ?", b);
-            owner.update("DELETE FROM branches WHERE business_id = ?", b);
-            owner.update("DELETE FROM businesses WHERE id = ?", b);
-        }
-        owner.update("DELETE FROM users WHERE email LIKE ?", "%" + DOMAIN);
+        TestCleanup.removeEverythingFor(owner, DOMAIN);
     }
 
     record Tenant(String businessId, String branchId, String access, String email) {
@@ -202,7 +180,7 @@ class BranchManagementTests {
 
         mvc.perform(get("/api/v1/branches").header("Authorization", mgr))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
-                .andExpect(jsonPath("$.items[0].id").value(t.branchId()));
+                .andExpect(jsonPath("$.items[0].id").value(t.branchId())).andExpect(jsonPath("$.restricted").value(true));
         mvc.perform(get("/api/v1/branches/" + second).header("Authorization", mgr)).andExpect(status().isNotFound());
         mvc.perform(post("/api/v1/branches/" + second + "/deactivate").header("Authorization", mgr))
                 .andExpect(status().isNotFound());

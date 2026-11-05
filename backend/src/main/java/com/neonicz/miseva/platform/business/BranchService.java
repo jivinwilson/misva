@@ -23,7 +23,7 @@ public class BranchService {
     public record Actor(UUID businessId, UUID userId, UUID membershipId) {
     }
 
-    public record BranchList(List<BranchView> items, Integer maxBranches, long used) {
+    public record BranchList(List<BranchView> items, Integer maxBranches, long used, boolean restricted) {
     }
 
     private static final String MAX_BRANCHES = "max_branches";
@@ -51,7 +51,7 @@ public class BranchService {
             List<BranchView> items = branches.list(actor.businessId()).stream()
                     .filter(b -> scope.map(ids -> ids.contains(b.id())).orElse(true)).toList();
             Entitlement ent = entitlements.resolve(actor.businessId(), MAX_BRANCHES);
-            return new BranchList(items, ent.limit(), branches.count(actor.businessId()));
+            return new BranchList(items, ent.limit(), branches.count(actor.businessId()), scope.isPresent());
         });
     }
 

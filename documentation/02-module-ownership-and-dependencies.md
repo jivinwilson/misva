@@ -41,3 +41,10 @@ Layers may only depend downward: D to C to B to A to `shared`. Within a layer, o
 - Persistence uses Spring `JdbcClient` repositories inside `TenantTx`, not JPA entities. JPA remains on the classpath for the transaction manager and future aggregates.
 - All tenant-owned access goes through `TenantTx.inContext(businessId, userId, ...)`, which makes the transaction manager run `set_config(..., true)` before any statement.
 - `business_slug_exists()` (V0008) is the one SECURITY DEFINER function, answering only "is this slug taken" across tenants.
+
+## Added with branch management and invitations
+- `business` declares the `BranchScopeResolver` port; `employee` implements it. `branch_access` is therefore owned by `employee`, not `rbac`.
+- `employee` may depend on identity (users, tokens), rbac (roles and permissions) and subscription (entitlements). `business` may depend on subscription and audit.
+- Invitations: a membership with status `invited` holds the SHA-256 hash of a single-use token of the form `<businessId>.<secret>`. The token is the credential for the two public endpoints `GET /api/v1/invitations/preview` and `POST /api/v1/invitations/accept`. The business id inside the token only selects the tenant context; the hash must still match.
+- An inviter can only hand out roles whose permissions are a subset of their own, never the owner role, and only branches within their own branch scope.
+- No email provider exists yet. With `INVITATIONS_EXPOSE_LINK=true` (local only) the invitation link is returned to the inviter; otherwise nothing is delivered. The notification engine must replace this before any deployment.
